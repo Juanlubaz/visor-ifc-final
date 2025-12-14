@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Visor IFC Vercel</title>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        #viewer-container { width: 100vw; height: 100vh; position: relative; }
+        #loading-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: white; }
+        #loading-screen.hidden { display: none; }
+        .spinner { border: 4px solid rgba(255, 255, 255, 0.3); border-top: 4px solid white; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #loading-text { font-size: 18px; margin-top: 10px; }
+        #progress-bar { width: 300px; height: 6px; background: rgba(255, 255, 255, 0.2); border-radius: 3px; overflow: hidden; margin-top: 20px; }
+        #progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); width: 0%; transition: width 0.3s; }
+        #controls { position: absolute; top: 20px; left: 20px; z-index: 100; display: flex; flex-direction: column; gap: 10px; }
+        .control-btn { background: rgba(255, 255, 255, 0.9); border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); transition: all 0.3s; }
+        .control-btn:hover { background: white; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); }
+        #info-panel { position: absolute; bottom: 20px; left: 20px; background: rgba(0, 0, 0, 0.7); color: white; padding: 15px; border-radius: 8px; font-size: 12px; max-width: 300px; }
+        #error-message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(220, 38, 38, 0.95); color: white; padding: 20px 30px; border-radius: 12px; font-size: 16px; text-align: center; display: none; z-index: 1001; max-width: 90%; }
+        @media (max-width: 768px) { #controls { top: 10px; left: 10px; } .control-btn { padding: 10px 16px; font-size: 12px; } #info-panel { bottom: 10px; left: 10px; padding: 10px; font-size: 11px; } }
+    </style>
+</head>
+<body>
+    <div id="viewer-container">
+        <div id="loading-screen">
+            <div class="spinner"></div>
+            <div id="loading-text">Inicializando visor...</div>
+            <div id="progress-bar">
+                <div id="progress-fill"></div>
+            </div>
+        </div>
+        <div id="controls">
+            <input type="file" id="file-input" accept=".ifc" style="display: none;">
+            <button class="control-btn" onclick="document.getElementById('file-input').click()">📁 Cargar archivo local</button>
+            <button class="control-btn" onclick="loadFromURL()">🔗 Cargar desde URL</button>
+            <button class="control-btn" onclick="resetView()">🔄 Resetear vista</button>
+        </div>
+        <div id="info-panel">
+            <strong>Controles:</strong><br>
+            • Ratón izquierdo: Rotar<br>
+            • Ratón derecho: Mover<br>
+            • Scroll: Zoom<br>
+            • Táctil: Arrastrar para rotar
+        </div>
+        <div id="error-message"></div>
+    </div>
+
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.127.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.127.0/examples/jsm/",
+            "web-ifc": "https://cdn.jsdelivr.net/npm/web-ifc@0.0.36/web-ifc-api.js",
+            "web-ifc-three": "https://cdn.jsdelivr.net/npm/web-ifc-three@0.0.126/IFCLoader.js"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { IFCLoader } from 'web-ifc-three';
+
+        let scene, camera, renderer, controls, ifcLoader;
+        let currentModel = null;
+        
+        // Esta es la ruta por defecto: el archivo modelo-base.ifc dentro de esta misma carpeta
+        const DEFAULT_IFC_URL = './modelo-base.ifc'; 
+
+        async function init() {
+            try {
+                const container = document.getElementById('viewer-container');
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0xf0f0f0);
+                camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.set(10, 10, 10);
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                container.appendChild(renderer.domElement);
+                controls = new OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                dirLight.position.set(10, 10, 5);
+                scene.add(dirLight);
+                scene.add(new THREE.GridHelper(50, 50));
+                
+                updateLoadingText('Cargando módulo IFC...');
+                ifcLoader = new IFCLoader();
+                // RUTA WASM CORRECTA, USA UNCDN (CDN público y estable)
+                await ifcLoader.ifcManager.setWasmPath('https://unpkg.com/web-ifc@0.0.36/dist/');
+
+                window.addEventListener('resize', onWindowResize);
+                document.getElementById('file-input').addEventListener('change', handleFileSelect);
+
+                // === LÓGICA DE CARGA ===
+                const urlParams = new URLSearchParams(window.location.search);
+                const ifcUrlFromNFC = urlParams.get('ifc_url'); 
+                
+                if (ifcUrlFromNFC) {
+                    loadModelFromURL(ifcUrlFromNFC);
+                } else {
+                    // Si no hay URL en el parámetro, carga el modelo por defecto alojado en Vercel
+                    loadModelFromURL(DEFAULT_IFC_URL);
+                }
+                
+                animate();
+            } catch (error) {
+                console.error('❌ Error en init:', error);
+                showError('Error al inicializar el visor: ' + error.message);
+                hideLoading();
+            }
+        }
+
+        // === FUNCIÓN CLAVE: Carga por STREAMING ===
+        window.loadModelFromURL = async function(url) {
+            if (currentModel) { scene.remove(currentModel); currentModel = null; }
+
+            try {
+                showLoading();
+                updateLoadingText('Cargando modelo por streaming...');
+
+                const ifcModel = await ifcLoader.loadAsync(url, (progressEvent) => {
+                    if (progressEvent.lengthComputable) {
+                        const percentComplete = (progressEvent.loaded / progressEvent.total) * 100;
+                        updateProgress(percentComplete);
+                        updateLoadingText(`Cargando modelo: ${percentComplete.toFixed(0)}%`);
+                    }
+                });
+
+                currentModel = ifcModel.mesh;
+                scene.add(currentModel);
+                centerCamera(currentModel);
+                hideLoading();
+                updateLoadingText('Modelo cargado. ¡Listo!');
+
+            } catch (error) {
+                console.error('❌ Error cargando modelo:', error);
+                showError(`Error al cargar el modelo desde: "${url}". El servidor debe configurarse para no forzar la descarga (MIME Type).`);
+                hideLoading();
+            }
+        }
+
+        // === Funciones auxiliares ===
+        function handleFileSelect(event) {
+            // ... (función local, no relevante para el problema de Vercel, pero se mantiene)
+            const file = event.target.files[0];
+            if (file) {
+                showLoading();
+                updateLoadingText('Cargando modelo local...');
+                const url = URL.createObjectURL(file);
+                if (currentModel) { scene.remove(currentModel); currentModel = null; }
+                ifcLoader.load(url, (ifcModel) => {
+                    currentModel = ifcModel.mesh;
+                    scene.add(currentModel);
+                    centerCamera(currentModel);
+                    hideLoading();
+                    URL.revokeObjectURL(url);
+                }, (progressEvent) => {
+                    if (progressEvent.lengthComputable) {
+                        updateProgress((progressEvent.loaded / progressEvent.total) * 100);
+                    }
+                }, (error) => {
+                    console.error('❌ Error cargando archivo local:', error);
+                    showError('Error al cargar el archivo local.');
+                    hideLoading();
+                });
+            }
+        }
+        
+        function centerCamera(model) {
+            const box = new THREE.Box3().setFromObject(model);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const fov = camera.fov * (Math.PI / 180);
+            let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+            cameraZ *= 1.5;
+            camera.position.set(center.x + cameraZ, center.y + cameraZ, center.z + cameraZ);
+            camera.lookAt(center);
+            controls.target.copy(center);
+            controls.update();
+        }
+
+        function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+        function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
+        window.resetView = function() { if (currentModel) { centerCamera(currentModel); } }
+        window.loadFromURL = function() { const url = prompt('Introduce la URL del archivo IFC:'); if (url) { loadModelFromURL(url); } }
+        function showLoading() { document.getElementById('loading-screen').classList.remove('hidden'); }
+        function hideLoading() { document.getElementById('loading-screen').classList.add('hidden'); }
+        function updateLoadingText(text) { document.getElementById('loading-text').textContent = text; }
+        function updateProgress(percent) { document.getElementById('progress-fill').style.width = percent + '%'; }
+        function showError(message) { 
+            const errorDiv = document.getElementById('error-message'); 
+            errorDiv.innerHTML = message; 
+            errorDiv.style.display = 'block'; 
+            setTimeout(() => { errorDiv.style.display = 'none'; }, 8000); 
+        }
+        
+        init().catch(error => { console.error('Error fatal:', error); showError('Error fatal al inicializar: ' + error.message); hideLoading(); });
+    </script>
+</body>
+</html>
