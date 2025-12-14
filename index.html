@@ -51,16 +51,17 @@
 
     <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
     
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.127.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.127.0/examples/jsm/",
-            "web-ifc": "https://cdn.jsdelivr.net/npm/web-ifc@0.0.36/web-ifc-api.js",
-            "web-ifc-three": "https://cdn.jsdelivr.net/npm/web-ifc-three@0.0.126/IFCLoader.js"
-        }
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.127.0/build/three.module.js",
+        // Usamos la ruta completa para OrbitControls para asegurar la resolución
+        "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.127.0/examples/jsm/controls/OrbitControls.js", 
+        "web-ifc": "https://cdn.jsdelivr.net/npm/web-ifc@0.0.36/web-ifc-api.js",
+        "web-ifc-three": "https://cdn.jsdelivr.net/npm/web-ifc-three@0.0.126/IFCLoader.js"
     }
-    </script>
+}
+</script>
 
     <script type="module">
         import * as THREE from 'three';
@@ -208,4 +209,5 @@
         init().catch(error => { console.error('Error fatal:', error); showError('Error fatal al inicializar: ' + error.message); hideLoading(); });
     </script>
 </body>
+
 </html>
