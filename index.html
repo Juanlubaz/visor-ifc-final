@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Visor IFC Vercel</title>
+    <title>Visor IFC Final</title>
     
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -23,7 +23,7 @@
         #error-message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(220, 38, 38, 0.95); color: white; padding: 20px 30px; border-radius: 12px; font-size: 16px; text-align: center; display: none; z-index: 1001; max-width: 90%; }
         @media (max-width: 768px) { #controls { top: 10px; left: 10px; } .control-btn { padding: 10px 16px; font-size: 12px; } #info-panel { bottom: 10px; left: 10px; padding: 10px; font-size: 11px; } }
     </style>
-</head>
+    </head>
 <body>
     <div id="viewer-container">
         <div id="loading-screen">
@@ -51,18 +51,16 @@
 
     <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
     
-<script type="importmap">
-{
-    "imports": {
-        "three": "https://unpkg.com/three@0.127.0/build/three.module.js",
-        // Aquí le decimos que todos los módulos deben buscarse en examples/jsm/
-        "three/addons/": "https://unpkg.com/three@0.127.0/examples/jsm/", 
-        "web-ifc": "https://cdn.jsdelivr.net/npm/web-ifc@0.0.36/web-ifc-api.js",
-        "web-ifc-three": "https://cdn.jsdelivr.net/npm/web-ifc-three@0.0.126/IFCLoader.js"
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.127.0/build/three.module.js",
+            "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.127.0/examples/jsm/controls/OrbitControls.js", 
+            "web-ifc": "https://cdn.jsdelivr.net/npm/web-ifc@0.0.36/web-ifc-api.js",
+            "web-ifc-three": "https://cdn.jsdelivr.net/npm/web-ifc-three@0.0.126/IFCLoader.js"
+        }
     }
-}
-</script>
-
+    </script>
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -71,7 +69,7 @@
         let scene, camera, renderer, controls, ifcLoader;
         let currentModel = null;
         
-        // Esta es la ruta por defecto: el archivo modelo-base.ifc dentro de esta misma carpeta
+        // Esta es la ruta por defecto, asumiendo que el archivo está en la raíz
         const DEFAULT_IFC_URL = './modelo-base.ifc'; 
 
         async function init() {
@@ -96,7 +94,7 @@
                 
                 updateLoadingText('Cargando módulo IFC...');
                 ifcLoader = new IFCLoader();
-                // RUTA WASM CORRECTA, USA UNCDN (CDN público y estable)
+                // RUTA WASM CORRECTA
                 await ifcLoader.ifcManager.setWasmPath('https://unpkg.com/web-ifc@0.0.36/dist/');
 
                 window.addEventListener('resize', onWindowResize);
@@ -109,7 +107,6 @@
                 if (ifcUrlFromNFC) {
                     loadModelFromURL(ifcUrlFromNFC);
                 } else {
-                    // Si no hay URL en el parámetro, carga el modelo por defecto alojado en Vercel
                     loadModelFromURL(DEFAULT_IFC_URL);
                 }
                 
@@ -145,14 +142,13 @@
 
             } catch (error) {
                 console.error('❌ Error cargando modelo:', error);
-                showError(`Error al cargar el modelo desde: "${url}". El servidor debe configurarse para no forzar la descarga (MIME Type).`);
+                showError(`Error al cargar el modelo desde: "${url}". Esto puede ser un error de archivo no encontrado (404) o de política CORS/MIME Type.`);
                 hideLoading();
             }
         }
 
         // === Funciones auxiliares ===
         function handleFileSelect(event) {
-            // ... (función local, no relevante para el problema de Vercel, pero se mantiene)
             const file = event.target.files[0];
             if (file) {
                 showLoading();
@@ -208,9 +204,5 @@
         
         init().catch(error => { console.error('Error fatal:', error); showError('Error fatal al inicializar: ' + error.message); hideLoading(); });
     </script>
-</body>
-
+    </body>
 </html>
-
-
-
