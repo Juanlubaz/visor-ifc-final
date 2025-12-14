@@ -53,7 +53,7 @@
     </div>
 
     <script>
-        // No hay 'type="module"' ni declaraciones 'import' aquí
+        // No hay 'import' aquí. THREE, IFCLoader, y OrbitControls son globales.
         let scene, camera, renderer, controls, ifcLoader;
         let currentModel = null;
         
@@ -62,7 +62,8 @@
         async function init() {
             try {
                 const container = document.getElementById('viewer-container');
-                scene = new THREE.Scene(); // THREE ya está definido globalmente
+                // Uso de las variables globales THREE y OrbitControls:
+                scene = new THREE.Scene(); 
                 scene.background = new THREE.Color(0xf0f0f0);
                 camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
                 camera.position.set(10, 10, 10);
@@ -72,7 +73,6 @@
                 renderer.setPixelRatio(window.devicePixelRatio);
                 container.appendChild(renderer.domElement);
                 
-                // OrbitControls ya está definido globalmente
                 controls = new THREE.OrbitControls(camera, renderer.domElement); 
                 controls.enableDamping = true;
                 controls.dampingFactor = 0.05;
@@ -84,7 +84,7 @@
                 
                 updateLoadingText('Cargando módulo IFC...');
                 
-                // IFCLoader ya está definido globalmente
+                // Uso de la variable global IFCLoader:
                 ifcLoader = new IFCLoader(); 
                 
                 await ifcLoader.ifcManager.setWasmPath('https://unpkg.com/web-ifc@0.0.36/dist/');
