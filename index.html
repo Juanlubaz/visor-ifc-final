@@ -59,10 +59,10 @@
         
         const DEFAULT_IFC_URL = './modelo-base.ifc'; 
 
-        async function init() {
+        // FUNCIÓN INIT MODIFICADA: YA NO ES ASÍNCRONA ('async' eliminado)
+        function init() {
             try {
                 const container = document.getElementById('viewer-container');
-                // Uso de las variables globales THREE y OrbitControls:
                 scene = new THREE.Scene(); 
                 scene.background = new THREE.Color(0xf0f0f0);
                 camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -84,10 +84,10 @@
                 
                 updateLoadingText('Cargando módulo IFC...');
                 
-                // Uso de la variable global IFCLoader:
                 ifcLoader = new IFCLoader(); 
                 
-                await ifcLoader.ifcManager.setWasmPath('https://unpkg.com/web-ifc@0.0.36/dist/');
+                // setWasmPath ahora se llama de forma síncrona
+                ifcLoader.ifcManager.setWasmPath('https://unpkg.com/web-ifc@0.0.36/dist/');
 
                 window.addEventListener('resize', onWindowResize);
                 document.getElementById('file-input').addEventListener('change', handleFileSelect);
@@ -110,7 +110,8 @@
             }
         }
 
-        // === FUNCIÓN CLAVE: Carga por STREAMING ===
+        // === FUNCIÓN CLAVE: Carga por STREAMING (Sigue siendo asíncrona) ===
+        // NOTA: Esta función es la que usa el 'await' para la carga, no init().
         window.loadModelFromURL = async function(url) {
             if (currentModel) { scene.remove(currentModel); currentModel = null; }
 
@@ -118,6 +119,7 @@
                 showLoading();
                 updateLoadingText('Cargando modelo por streaming...');
 
+                // Esta es la parte que es asíncrona y puede fallar por MIME Type/404
                 const ifcModel = await ifcLoader.loadAsync(url, (progressEvent) => {
                     if (progressEvent.lengthComputable) {
                         const percentComplete = (progressEvent.loaded / progressEvent.total) * 100;
@@ -196,11 +198,7 @@
         
         // Llamada a init() SOLO cuando la página y las librerías están listas
         window.onload = function() {
-            init().catch(error => { 
-                console.error('Error fatal:', error); 
-                showError('Error fatal al inicializar: ' + error.message); 
-                hideLoading(); 
-            });
+            init();
         };
     </script>
 </body>
