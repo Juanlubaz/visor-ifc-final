@@ -195,6 +195,18 @@
         }
         
         init().catch(error => { console.error('Error fatal:', error); showError('Error fatal al inicializar: ' + error.message); hideLoading(); });
+        // ... (resto de las funciones, como showError)
+        
+        // MODIFICACIÓN FINAL: Llamar a init() SOLO cuando todo esté cargado
+        window.onload = function() {
+            init().catch(error => { 
+                console.error('Error fatal:', error); 
+                showError('Error fatal al inicializar: ' + error.message); 
+                hideLoading(); 
+            });
+        };
+        // ANTES tenías: init().catch(...) al final del archivo. ELIMINA esa línea y usa window.onload
     </script>
 </body>
 </html>
+
