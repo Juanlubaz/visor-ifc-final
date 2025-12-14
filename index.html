@@ -53,28 +53,26 @@
     </div>
 
     <script>
-        // Las librerías están disponibles globalmente (THREE, IFCLoader, OrbitControls)
+        // No hay 'type="module"' ni declaraciones 'import' aquí
         let scene, camera, renderer, controls, ifcLoader;
         let currentModel = null;
         
-        // Esta es la ruta por defecto, asumiendo que el archivo está en la raíz
         const DEFAULT_IFC_URL = './modelo-base.ifc'; 
 
         async function init() {
             try {
                 const container = document.getElementById('viewer-container');
-                scene = new THREE.Scene();
+                scene = new THREE.Scene(); // THREE ya está definido globalmente
                 scene.background = new THREE.Color(0xf0f0f0);
                 camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
                 camera.position.set(10, 10, 10);
                 
-                // NOTA: THREE, IFCLoader, y OrbitControls ahora están disponibles globalmente
                 renderer = new THREE.WebGLRenderer({ antialias: true });
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 renderer.setPixelRatio(window.devicePixelRatio);
                 container.appendChild(renderer.domElement);
                 
-                // OrbitControls es un constructor global en esta configuración
+                // OrbitControls ya está definido globalmente
                 controls = new THREE.OrbitControls(camera, renderer.domElement); 
                 controls.enableDamping = true;
                 controls.dampingFactor = 0.05;
@@ -86,10 +84,9 @@
                 
                 updateLoadingText('Cargando módulo IFC...');
                 
-                // IFCLoader es un constructor global
+                // IFCLoader ya está definido globalmente
                 ifcLoader = new IFCLoader(); 
                 
-                // RUTA WASM CORRECTA
                 await ifcLoader.ifcManager.setWasmPath('https://unpkg.com/web-ifc@0.0.36/dist/');
 
                 window.addEventListener('resize', onWindowResize);
@@ -121,7 +118,6 @@
                 showLoading();
                 updateLoadingText('Cargando modelo por streaming...');
 
-                // Notar que loadAsync es asíncrono y usa promesas
                 const ifcModel = await ifcLoader.loadAsync(url, (progressEvent) => {
                     if (progressEvent.lengthComputable) {
                         const percentComplete = (progressEvent.loaded / progressEvent.total) * 100;
@@ -151,7 +147,6 @@
                 updateLoadingText('Cargando modelo local...');
                 const url = URL.createObjectURL(file);
                 if (currentModel) { scene.remove(currentModel); currentModel = null; }
-                // Esta función sigue usando el método load sincrónico
                 ifcLoader.load(url, (ifcModel) => {
                     currentModel = ifcModel.mesh;
                     scene.add(currentModel);
@@ -201,5 +196,5 @@
         
         init().catch(error => { console.error('Error fatal:', error); showError('Error fatal al inicializar: ' + error.message); hideLoading(); });
     </script>
-    </body>
+</body>
 </html>
