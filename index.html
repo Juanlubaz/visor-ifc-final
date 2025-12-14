@@ -53,14 +53,13 @@
     </div>
 
     <script>
-        // Declaración de variables globales
         let scene, camera, renderer, controls, ifcLoader;
         let currentModel = null;
         
         const DEFAULT_IFC_URL = './modelo-base.ifc'; 
 
-        // FUNCIÓN INIT MODIFICADA: YA NO ES ASÍNCRONA ('async' eliminado)
-        function init() {
+        // INIT VUELVE A SER ASÍNCRONA PARA MANEJAR DEPENDENCIAS LARGAS
+        async function init() {
             try {
                 const container = document.getElementById('viewer-container');
                 scene = new THREE.Scene(); 
@@ -84,22 +83,22 @@
                 
                 updateLoadingText('Cargando módulo IFC...');
                 
+                // === ZONA CRÍTICA: La inicialización de la librería debe ser esperada (await)
                 ifcLoader = new IFCLoader(); 
-                
-                // setWasmPath ahora se llama de forma síncrona
-                ifcLoader.ifcManager.setWasmPath('https://unpkg.com/web-ifc@0.0.36/dist/');
+                await ifcLoader.ifcManager.setWasmPath('https://unpkg.com/web-ifc@0.0.36/dist/');
+                // === FIN ZONA CRÍTICA
 
                 window.addEventListener('resize', onWindowResize);
                 document.getElementById('file-input').addEventListener('change', handleFileSelect);
 
-                // === LÓGICA DE CARGA ===
+                // LÓGICA DE CARGA
                 const urlParams = new URLSearchParams(window.location.search);
                 const ifcUrlFromNFC = urlParams.get('ifc_url'); 
                 
                 if (ifcUrlFromNFC) {
-                    loadModelFromURL(ifcUrlFromNFC);
+                    await loadModelFromURL(ifcUrlFromNFC);
                 } else {
-                    loadModelFromURL(DEFAULT_IFC_URL);
+                    await loadModelFromURL(DEFAULT_IFC_URL);
                 }
                 
                 animate();
@@ -110,8 +109,7 @@
             }
         }
 
-        // === FUNCIÓN CLAVE: Carga por STREAMING (Sigue siendo asíncrona) ===
-        // NOTA: Esta función es la que usa el 'await' para la carga, no init().
+        // === FUNCIÓN CLAVE: Carga por STREAMING ===
         window.loadModelFromURL = async function(url) {
             if (currentModel) { scene.remove(currentModel); currentModel = null; }
 
@@ -119,7 +117,6 @@
                 showLoading();
                 updateLoadingText('Cargando modelo por streaming...');
 
-                // Esta es la parte que es asíncrona y puede fallar por MIME Type/404
                 const ifcModel = await ifcLoader.loadAsync(url, (progressEvent) => {
                     if (progressEvent.lengthComputable) {
                         const percentComplete = (progressEvent.loaded / progressEvent.total) * 100;
@@ -141,7 +138,7 @@
             }
         }
 
-        // === Funciones auxiliares ===
+        // === Funciones auxiliares (se mantienen) ===
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (file) {
@@ -196,9 +193,18 @@
             setTimeout(() => { errorDiv.style.display = 'none'; }, 8000); 
         }
         
-        // Llamada a init() SOLO cuando la página y las librerías están listas
+        // Ejecuta la función principal cuando las librerías se han cargado (sin async)
         window.onload = function() {
-            init();
+            // Utilizamos una función IIFE asíncrona para ejecutar init()
+            (async () => {
+                try {
+                    await init();
+                } catch (error) {
+                    console.error('Error fatal al iniciar:', error);
+                    showError('Error fatal al iniciar el visor: ' + error.message);
+                    hideLoading();
+                }
+            })();
         };
     </script>
 </body>
